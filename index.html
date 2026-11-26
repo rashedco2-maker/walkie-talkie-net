@@ -11,8 +11,7 @@
 *{box-sizing:border-box}
 body{
  margin:0;background:#20252b;color:white;
- font-family:Arial,sans-serif;
- min-height:100vh;
+ font-family:Arial,sans-serif;min-height:100vh;
 }
 header{
  padding:20px;background:#292f37;
@@ -41,8 +40,9 @@ button{
  background:#ffad32;color:#20252b;
  font-weight:bold;font-size:16px;cursor:pointer;
 }
+button:disabled{opacity:.6;cursor:wait}
 .secondary{background:#414750;color:white}
-.hidden{display:none}
+.hidden{display:none!important}
 .ptt{
  width:190px;height:190px;border-radius:50%;
  background:linear-gradient(145deg,#ffbd4a,#ed7900);
@@ -58,6 +58,11 @@ button{
 }
 .small{font-size:13px;color:#aaa}
 footer{text-align:center;color:#888;padding:25px;font-size:12px}
+.message{
+ color:#ffbd4a;text-align:center;
+ font-size:14px;margin-top:12px;
+ line-height:1.7;
+}
 </style>
 </head>
 
@@ -79,22 +84,31 @@ footer{text-align:center;color:#888;padding:25px;font-size:12px}
 
  <div class="card">
   <h2>تسجيل الدخول</h2>
-  <input id="loginEmail" type="email" placeholder="البريد الإلكتروني">
-  <input id="loginPass" type="password" placeholder="كلمة المرور">
-  <button onclick="login()">دخول</button>
+  <input id="loginEmail" type="email"
+   placeholder="البريد الإلكتروني" autocomplete="email">
+  <input id="loginPass" type="password"
+   placeholder="كلمة المرور" autocomplete="current-password">
+  <button id="loginBtn" onclick="login()">دخول</button>
   <button class="secondary" onclick="showRegister()">إنشاء حساب جديد</button>
+  <p id="loginMessage" class="message"></p>
  </div>
 </section>
 
 <section id="register" class="hidden">
  <div class="card">
   <h2>إنشاء حساب جديد</h2>
-  <input id="regName" placeholder="الاسم الظاهر">
-  <input id="regEmail" type="email" placeholder="البريد الإلكتروني">
-  <input id="regPass" type="password" placeholder="كلمة المرور (6 أحرف على الأقل)">
-  <input id="regWhats" type="tel" placeholder="رقم واتساب (اختياري)">
-  <button onclick="register()">إنشاء الحساب</button>
+  <input id="regName" placeholder="الاسم الظاهر"
+   autocomplete="name">
+  <input id="regEmail" type="email"
+   placeholder="البريد الإلكتروني" autocomplete="email">
+  <input id="regPass" type="password"
+   placeholder="كلمة المرور (6 أحرف على الأقل)"
+   autocomplete="new-password">
+  <input id="regWhats" type="tel"
+   placeholder="رقم واتساب (اختياري)">
+  <button id="registerBtn" onclick="register()">إنشاء الحساب</button>
   <button class="secondary" onclick="showLogin()">العودة لتسجيل الدخول</button>
+  <p id="registerMessage" class="message"></p>
  </div>
 </section>
 
@@ -105,7 +119,9 @@ footer{text-align:center;color:#888;padding:25px;font-size:12px}
  <div class="card">
   <h2>حالة الغرفة</h2>
   <p>🟢 الغرفة متاحة للدخول</p>
-  <p class="small">زر التحدث في هذه النسخة تجريبي، وسيتم ربط الصوت المباشر لاحقاً.</p>
+  <p class="small">
+   زر التحدث تجريبي حالياً. سيتم ربط الصوت المباشر لاحقاً.
+  </p>
   <button id="talk" class="ptt">اضغط للتحدث</button>
   <p id="talkStatus" class="subtitle">أنت في وضع الاستماع</p>
  </div>
@@ -123,10 +139,11 @@ footer{text-align:center;color:#888;padding:25px;font-size:12px}
   <p>إدارة الغرفة والأعضاء</p>
   <button onclick="toggleRoom()">فتح / إغلاق الغرفة</button>
   <p id="roomState">الغرفة مفتوحة</p>
-  <p class="small">أدوات الإدارة الفعلية ستعمل بعد ربط قاعدة البيانات والصلاحيات.</p>
+  <p class="small">التحكم هنا تجريبي وليس صلاحية إدارية محفوظة.</p>
  </div>
 
  <button class="secondary" onclick="logout()">تسجيل الخروج</button>
+ <p id="roomMessage" class="message"></p>
 </section>
 
 </main>
@@ -135,80 +152,190 @@ footer{text-align:center;color:#888;padding:25px;font-size:12px}
  مراسلات MARASALAT © 2026
 </footer>
 
-<script>
-function hideAll(){
- document.getElementById('welcome').classList.add('hidden');
- document.getElementById('register').classList.add('hidden');
- document.getElementById('room').classList.add('hidden');
-}
+<script type="module">
 
-function showRegister(){
- hideAll();
- document.getElementById('register').classList.remove('hidden');
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+
+import {
+ getAuth,
+ createUserWithEmailAndPassword,
+ signInWithEmailAndPassword,
+ signOut,
+ onAuthStateChanged,
+ updateProfile
+} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+
+const firebaseConfig = {
+ apiKey: "AIzaSyCAFjLDd9-Mtkjc4-vBJ0yd_wktbyW0ESA",
+ authDomain: "marasalat.firebaseapp.com",
+ projectId: "marasalat",
+ storageBucket: "marasalat.firebasestorage.app",
+ messagingSenderId: "655263811173",
+ appId: "1:655263811173:web:46705b4806528d7c0ea88c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+// بريد الإدارة يحدد لاحقاً بعد ضبط الصلاحيات
+const ADMIN_EMAIL = "";
+
+function hideAll(){
+ document.getElementById("welcome").classList.add("hidden");
+ document.getElementById("register").classList.add("hidden");
+ document.getElementById("room").classList.add("hidden");
 }
 
 function showLogin(){
  hideAll();
- document.getElementById('welcome').classList.remove('hidden');
+ document.getElementById("welcome").classList.remove("hidden");
 }
 
-function login(){
- let email=document.getElementById('loginEmail').value;
- let pass=document.getElementById('loginPass').value;
+function showRegister(){
+ hideAll();
+ document.getElementById("register").classList.remove("hidden");
+}
+
+window.showLogin = showLogin;
+window.showRegister = showRegister;
+
+// إنشاء حساب حقيقي
+window.register = async function(){
+ const name = document.getElementById("regName").value.trim();
+ const email = document.getElementById("regEmail").value.trim();
+ const pass = document.getElementById("regPass").value;
+ const msg = document.getElementById("registerMessage");
+ const btn = document.getElementById("registerBtn");
+
+ if(!name || !email || pass.length < 6){
+  msg.textContent = "أدخل الاسم والبريد وكلمة مرور من 6 أحرف على الأقل";
+  return;
+ }
+
+ btn.disabled = true;
+ msg.textContent = "جارٍ إنشاء الحساب...";
+
+ try{
+  const result = await createUserWithEmailAndPassword(
+   auth,email,pass
+  );
+
+  await updateProfile(result.user,{
+   displayName:name
+  });
+
+  msg.textContent = "تم إنشاء الحساب بنجاح!";
+ }catch(error){
+  msg.textContent = getErrorMessage(error.code);
+ }finally{
+  btn.disabled = false;
+ }
+};
+
+// تسجيل الدخول الحقيقي
+window.login = async function(){
+ const email = document.getElementById("loginEmail").value.trim();
+ const pass = document.getElementById("loginPass").value;
+ const msg = document.getElementById("loginMessage");
+ const btn = document.getElementById("loginBtn");
+
  if(!email || !pass){
-  alert('أدخل البريد الإلكتروني وكلمة المرور');
+  msg.textContent = "أدخل البريد الإلكتروني وكلمة المرور";
   return;
  }
- alert('هذه واجهة تجريبية. سيتم تفعيل تسجيل الدخول بعد ربط قاعدة البيانات.');
-}
 
-function register(){
- let name=document.getElementById('regName').value;
- let email=document.getElementById('regEmail').value;
- let pass=document.getElementById('regPass').value;
- if(!name || !email || pass.length<6){
-  alert('أدخل الاسم والبريد وكلمة مرور من 6 أحرف على الأقل');
-  return;
+ btn.disabled = true;
+ msg.textContent = "جارٍ تسجيل الدخول...";
+
+ try{
+  await signInWithEmailAndPassword(auth,email,pass);
+  msg.textContent = "";
+ }catch(error){
+  msg.textContent = getErrorMessage(error.code);
+ }finally{
+  btn.disabled = false;
  }
- alert('واجهة التسجيل جاهزة. إنشاء الحساب الحقيقي يحتاج ربط خدمة الحسابات.');
+};
+
+// رسائل الأخطاء بالعربية
+function getErrorMessage(code){
+ const errors = {
+  "auth/email-already-in-use":"هذا البريد مسجل بالفعل",
+  "auth/invalid-email":"البريد الإلكتروني غير صحيح",
+  "auth/weak-password":"كلمة المرور ضعيفة",
+  "auth/invalid-credential":"البريد أو كلمة المرور غير صحيحة",
+  "auth/user-not-found":"الحساب غير موجود",
+  "auth/wrong-password":"كلمة المرور غير صحيحة",
+  "auth/too-many-requests":"محاولات كثيرة، حاول لاحقاً",
+  "auth/network-request-failed":"تحقق من اتصال الإنترنت",
+  "auth/operation-not-allowed":"تسجيل البريد وكلمة المرور غير مفعّل"
+ };
+ return errors[code] || "حدث خطأ: " + code;
 }
 
-function enterRoom(name){
- hideAll();
- document.getElementById('room').classList.remove('hidden');
- document.getElementById('memberName').textContent=name;
- document.getElementById('connection').textContent='متصل';
-}
+// متابعة حالة الحساب
+onAuthStateChanged(auth,user=>{
+ if(user){
+  hideAll();
+  document.getElementById("room").classList.remove("hidden");
+  document.getElementById("memberName").textContent =
+   user.displayName || "عضو مراسلات";
+  document.getElementById("connection").textContent = "متصل";
 
-function logout(){
- hideAll();
- document.getElementById('welcome').classList.remove('hidden');
- document.getElementById('connection').textContent='غير متصل';
-}
+  const isAdmin = ADMIN_EMAIL &&
+   user.email === ADMIN_EMAIL;
 
-let open=true;
-function toggleRoom(){
- open=!open;
- document.getElementById('roomState').textContent=
- open?'الغرفة مفتوحة':'الغرفة مغلقة';
-}
+  document.getElementById("admin").classList.toggle(
+   "hidden",!isAdmin
+  );
+ }else{
+  showLogin();
+  document.getElementById("connection").textContent = "غير متصل";
+  document.getElementById("admin").classList.add("hidden");
+ }
+});
 
-const talk=document.getElementById('talk');
+// تسجيل الخروج
+window.logout = async function(){
+ try{
+  await signOut(auth);
+ }catch(error){
+  alert(getErrorMessage(error.code));
+ }
+};
+
+// تحكم تجريبي بالغرفة
+let open = true;
+
+window.toggleRoom = function(){
+ open = !open;
+ document.getElementById("roomState").textContent =
+  open ? "الغرفة مفتوحة" : "الغرفة مغلقة";
+};
+
+// زر التحدث التجريبي
+const talk = document.getElementById("talk");
+
 function startTalk(){
- talk.classList.add('active');
- talk.textContent='جاري التحدث';
- document.getElementById('talkStatus').textContent='وضع التحدث التجريبي';
+ talk.classList.add("active");
+ talk.textContent = "جاري التحدث";
+ document.getElementById("talkStatus").textContent =
+  "وضع التحدث التجريبي";
 }
-function stopTalk(){
- talk.classList.remove('active');
- talk.textContent='اضغط للتحدث';
- document.getElementById('talkStatus').textContent='أنت في وضع الاستماع';
-}
-talk.addEventListener('pointerdown',startTalk);
-talk.addEventListener('pointerup',stopTalk);
-talk.addEventListener('pointerleave',stopTalk);
-talk.addEventListener('pointercancel',stopTalk);
-</script>
 
+function stopTalk(){
+ talk.classList.remove("active");
+ talk.textContent = "اضغط للتحدث";
+ document.getElementById("talkStatus").textContent =
+  "أنت في وضع الاستماع";
+}
+
+talk.addEventListener("pointerdown",startTalk);
+talk.addEventListener("pointerup",stopTalk);
+talk.addEventListener("pointerleave",stopTalk);
+talk.addEventListener("pointercancel",stopTalk);
+
+</script>
 </body>
 </html>
